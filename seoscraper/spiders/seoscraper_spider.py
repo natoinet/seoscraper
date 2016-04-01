@@ -1,5 +1,5 @@
-#from urllib.parse import urljoin
-from urlparse import urljoin
+from urllib.parse import urljoin
+#from urlparse import urljoin
 
 from scrapy.spiders import Spider
 from scrapy import Request
