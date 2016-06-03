@@ -1,106 +1,107 @@
 from urllib.parse import urljoin, urlparse
-#from urlparse import urljoin
 
-from scrapy.spiders import Spider
+import pymongo
+from pymongo import MongoClient
+
 from scrapy import Request
+from scrapy.linkextractors import LinkExtractor
+from scrapy.spiders import SitemapSpider, CrawlSpider, Rule
 
-#from seoscraper.items import SeoScraperItem
+from seoscraper.items import UrlItem, PageMapItem
 
-class SeoScraperSpider(Spider):
-    name = "minime_scraper"
+class SeoScraperSpider(SitemapSpider, CrawlSpider):
+    name = "minime_html"
 
-    def __init__(self, domains=None, urls=None, *args, **kwargs):
+    #start_urls = ['https://seotrafico.com']
+    #rules = ( Rule(LinkExtractor(allow=('', )), callback='parse_item'), )
+    sitemap_rules = [ ('/', 'parse_item'), ]
+
+    def __init__(self, domains=None, urls=None, sitemaps=None, follow=False, resources=False, links=False, *args, **kwargs):
         super(SeoScraperSpider, self).__init__(*args, **kwargs)
 
+        self.follow = bool(follow)
+        self.resources = bool(resources)
+        self.links = bool(links)
         self.handle_httpstatus_list = range( 302, 511 )
-        self.allowed_domains = [domains]
 
-        with open(urls) as csv_file:
-            self.start_urls = [url.strip() for url in csv_file.readlines()]
+        # Dynamically setting rules
+        SeoScraperSpider.rules = ( Rule(LinkExtractor(allow=('', )), callback='parse_item', follow=self.follow), )
+        super(SeoScraperSpider, self)._compile_rules()
 
-    def parse(self, response):
-        #log.msg('Hi, this is a response %s and a row!: %r' % str(response.status) % row)
-        #item = SeoScraperItem()
+        if (domains is not None):
+            self.allowed_domains = [domains]
 
+        if (sitemaps is not None):
+            self.sitemap_urls = [sitemaps]
+
+        if (urls is not None):
+            with open(urls) as csv_file:
+                self.start_urls = [url.strip() for url in csv_file.readlines()]
+                self.logger.debug('__init__ %s', len(self.start_urls))
+
+    def start_requests(self):
+        # Required for SitemapSpider
+        requests = list(super(SeoScraperSpider, self).start_requests())
+
+        requests += [Request(url, self.parse_item) for url in self.start_urls]
+        return requests
+
+    def parse_item(self, response):
         try:
-            self.logger.info('parse')
-
-            '''
-            item['source_url'] = response.meta.get('redirect_urls', u'')
-            item['final_url'] = response.url
-            item['redirections'] = response.meta.get('redirect_times', 0)
-            item['redirect_status'] = response.meta.get('redirect_status', u'')
-            item['status'] = response.status
-            item['title'] = response.xpath('//title/text()').extract()
-            item['desc'] = response.xpath('//meta[@name="description"]/@content').extract()
-            item['h1'] = response.xpath('//h1/text()').extract()
-            item['robots'] = response.xpath('//meta[@name="robots"]/@content').extract()
-            '''
-
-            '''
-            # Resolves the "Missing scheme in request URL" when url misses http for example
-            #image_urls = [ urljoin(response.url, u) for u in response.xpath("//img/@src").extract() ]
-            #script_urls = [ urljoin(response.url, u) for u in response.xpath('//script/@src').extract()]
-            #link_urls = [ urljoin(response.url, u) for u in response.xpath("//link/@href").extract() ]
-            #item['file_type'] = 'html'
-
-            for request in self.yield_resources(response, image_urls):
-                yield request
-
-            for request in self.yield_resources(response, link_urls):
-                yield request
-
-            for request in self.yield_resources(response, script_urls):
-                yield request
-            '''
-
-            '''
-            resources = [ urljoin(response.url, u) for u in response.xpath("//img/@src").extract() ]
-            resources.extend( [ urljoin(response.url, u) for u in response.xpath('//script/@src').extract() ] )
-            resources.extend( [ urljoin(response.url, u) for u in response.xpath("//link/@href").extract() ] )
-            
-            for request in self.yield_resources(response, resources):
-                yield request
-
-            yield {
-                'source_url' : [ urlparse(u) for u in response.meta.get('redirect_urls', u'') ],
-                'url' : urlparse(response.url),
-                'redirections' : response.meta.get('redirect_times', 0),
-                'redirect_status' : response.meta.get('redirect_status', u''),
-                'status' : response.status,
-                'title' : response.xpath('//title/text()').extract(),
-                'desc' : response.xpath('//meta[@name="description"]/@content').extract(),
-                'h1' : response.xpath('//h1/text()').extract(),
-                'robots' : response.xpath('//meta[@name="robots"]/@content').extract(),
-                'content_type' : response.headers.get('Content-Type').decode(encoding='utf-8'),
-                'content_size' : response.headers.get('Content-Length', len(response.body)).decode(encoding='utf-8'),
-                'canonical' : urlparse(urljoin(response.url, response.xpath('//link[@rel="canonical"]/@href').extract_first())),
-                'a_href' : [ urlparse(urljoin(response.url, u)) for u in response.xpath("//a/@href").extract() ],
-                'resources' : [ urlparse(u) for u in resources ]
-            }
-            '''
+            self.logger.debug('parse %s', response.url)
 
             for request in self.yield_html(response):
                 yield request
 
+            # CrawlSpider defines this method to return all scraped urls.
+            if (self.follow is True):
+                yield from self.parse(response)
         except AttributeError as e:
             self.logger.exception("AttributeError exception")
         except Exception as e:
             self.logger.exception("Parse Exception")
 
     def yield_html(self, response):
-        images = response.xpath("//img")
-        img_extraction = [ urljoin(response.url, u) for u in images.xpath("@src").extract() ]
+        content_type = response.headers.get('Content-Type').decode(encoding='utf-8')
+        self.logger.debug('yield_html content_type %s', content_type)
 
-        for request in self.request_resources(response, img_extraction):
-            yield request
+        item = UrlItem()
+        item['url'] = response.url
+        item['item_type'] = type(item)
+        item['status'] = response.status
+        item['content_size'] = response.headers.get('Content-Length', len(response.body)).decode(encoding='utf-8')
+        item['content_type'] = content_type
 
-        resources = ( [ urljoin(response.url, u) for u in response.xpath('//script/@src').extract() ] )
-        resources.extend( [ urljoin(response.url, u) for u in response.xpath("//link/@href").extract() ] )
+        if 'html' in content_type:
+            item['doc'] = {
+                'source_url' : [ u for u in response.meta.get('redirect_urls', u'') ],
+                'redirections' : response.meta.get('redirect_times', 0),
+                'redirect_status' : response.meta.get('redirect_status', u''),
+                'title' : response.xpath('//title/text()').extract(),
+                'desc' : response.xpath('//meta[@name="description"]/@content').extract(),
+                'h1' : response.xpath('//h1/text()').extract(),
+                'robots' : response.xpath('//meta[@name="robots"]/@content').extract(),
+                'canonical' : urljoin(response.url, response.xpath('//link[@rel="canonical"]/@href').extract_first()),
+            }
 
-        for request in self.request_resources(response, resources):
-            yield request
+            if (self.resources is True):
+                self.logger.debug('yield_html crawl_resources is True %s', content_type)                
+                # Extract href attribute        
+                for request in self.yield_attributes(response, '@href', None):
+                    yield request
 
+                # Extract src attribute        
+                for request in self.yield_attributes(response, '@src', None):
+                    yield request
+            elif (self.links is True):
+                for request in self.yield_attributes(response, '@href', '//a'):
+                    yield request
+                
+
+        yield item
+
+        '''
+        DISABLED FOR POSTGRE
         yield {
             'source_url' : [ urlparse(u) for u in response.meta.get('redirect_urls', u'') ],
             'url' : urlparse(response.url),
@@ -115,14 +116,14 @@ class SeoScraperSpider(Spider):
             'content_size' : response.headers.get('Content-Length', len(response.body)).decode(encoding='utf-8'),
             'canonical' : urlparse(urljoin(response.url, response.xpath('//link[@rel="canonical"]/@href').extract_first())),
             'links' : [ { 
-                            'href' : link.xpath('@href').extract_first(), 
+                            'href' : urlparse( urljoin(response.url, link.xpath('@href').extract_first() ) ),
                             'rel' : link.xpath('@rel').extract_first(), 
                             'text' : link.xpath('text()').extract_first() 
                         }
                         for link in response.xpath("//a") ],
-            'resources' : [ urlparse(u) for u in resources ],
+            'resources' : [ { 'src' : urlparse(u) } for u in resources ],
             'images' : [ { 
-                            'src' : image.xpath('@src').extract_first(), 
+                            'src' : urljoin(response.url, image.xpath('@src').extract_first()), 
                             'alt' : image.xpath('@alt').extract_first(), 
                             'title' : image.xpath('@title').extract_first(), 
                             'width' : image.xpath('@width').extract_first(), 
@@ -130,33 +131,37 @@ class SeoScraperSpider(Spider):
                         }
                         for image in images ]
         }
+        '''
 
-    def request_resources(self, response, urls):
-        self.logger.info('request_resources')
-        for url in urls:
-            self.logger.debug('request_resources url %s', url)
-            request = Request(url, callback=self.parse_resource)
-            # Adds the source url for this resource
-            #request.meta['source_url'] = urlparse(response.url)
-            yield request
-
-    def parse_resource(self, response):
-        self.logger.info('parse_resource')
-
+    def yield_attributes(self, response, attribute, element):
         try:
-            content_type = response.headers.get('Content-Type').decode(encoding='utf-8')
-            status =  response.status
-            if status in self.handle_httpstatus_list:
-                yield {
-                    'url' : urlparse(response.url),
-                    'status' : response.status
-                }
-            elif 'html' not in content_type:
-                yield {
-                    'url' : urlparse(response.url),
-                    'status' : response.status,
-                    'content_type' : content_type,
-                    'content_size' : int(response.headers.get('Content-Length', len(response.body)))
-                }
+            if (element is None):
+                ex_attribute = "//*[%s]" % attribute
+            else:
+                ex_attribute = element + "[%s]" % attribute
+
+            for href_element in response.xpath(ex_attribute):
+                link = urljoin( response.url, href_element.xpath(attribute).extract_first() )
+
+                if (self.different_url(response.url, link) is True):
+                    item = PageMapItem()
+                    item['url'] = response.url
+                    item['item_type'] = type(item)
+                    item['link'] = link
+                    # normalize-space allows to prevent \r\n characters
+                    item['value'] = href_element.xpath('normalize-space(../text())').extract_first()
+                    yield Request(link, callback=self.parse_item)
+                    yield item
+
         except Exception as e:
-            self.logger.exception("parse_resource Exception")
+            self.logger.exception("yield_attributes Exception")
+
+    def different_url(self, url, link):
+        parsed_url = urlparse( url )
+        linked_url = urlparse( link )
+        
+        return ( (parsed_url.scheme != linked_url.scheme) 
+            or (parsed_url.netloc != linked_url.netloc) 
+            or (parsed_url.path != linked_url.path) 
+            or (parsed_url.params != linked_url.params) 
+            or (parsed_url.query != linked_url.query) )

@@ -22,6 +22,9 @@ NEWSPIDER_MODULE = 'seoscraper.spiders'
 
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10; rv:44.0) Gecko/20100101 Firefox/44.0'
 
+#DUPEFILTER_CLASS = 'scrapy.dupefilters.RFPDupeFilter'
+#DUPEFILTER_DEBUG = True
+
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 #CONCURRENT_REQUESTS = 32
 
@@ -69,7 +72,8 @@ DOWNLOAD_DELAY = 2
 #    'seoscraper.pipelines.MongoPipeline': 300,
 #}
 ITEM_PIPELINES = {
-  'scrapy_mongodb.MongoDBPipeline' : 300
+  #'scrapy_mongodb.MongoDBPipeline' : 300
+  'seoscraper.pipelines.PostgreMultiplePipeline' : 300,
 }
 
 MONGODB_URI = 'mongodb://localhost:27017'
