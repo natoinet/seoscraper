@@ -27,7 +27,7 @@ class PostgreMultiplePipeline(object):
                         )
 
                     elif type(item) is PageMapItem:
-                        cursor.execute("""INSERT INTO pagemap (url, link, value) VALUES(%s, %s, %s)""", (item.get('url'), item.get('link'), item.get('value'), ))
+                        cursor.execute("""INSERT INTO pagemap (url, link, value, rel) VALUES(%s, %s, %s, %s)""", (item.get('url'), item.get('link'), item.get('value'), item.get('rel'),))
 
                     connection.commit()
         except:

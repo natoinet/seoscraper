@@ -19,6 +19,8 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
     def __init__(self, domains=None, urls=None, sitemaps=None, follow=False, resources=False, links=False, *args, **kwargs):
         super(SeoScraperSpider, self).__init__(*args, **kwargs)
 
+        self.logger.debug('__init__ domains:%s, urls:%s, sitemaps:%s, follow:%s, resources:%s, links:%s', domains, urls, sitemaps, follow, resources, links)
+
         self.follow = bool(follow)
         self.resources = bool(resources)
         self.links = bool(links)
@@ -28,8 +30,9 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
         SeoScraperSpider.rules = ( Rule(LinkExtractor(allow=('', )), callback='parse_item', follow=self.follow), )
         super(SeoScraperSpider, self)._compile_rules()
 
-        if (domains is not None):
-            self.allowed_domains = [domains]
+        #if (domains is not None):
+        #    self.allowed_domains = [domains]
+        self.allowed_domains = [domains]
 
         if (sitemaps is not None):
             self.sitemap_urls = [sitemaps]
@@ -73,28 +76,33 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
         item['content_type'] = content_type
 
         if 'html' in content_type:
+            referrer = response.request.headers.get('Referer', None)
+            if referrer is not None:
+                referrer = referrer.decode(encoding='utf-8')
             item['doc'] = {
                 'source_url' : [ u for u in response.meta.get('redirect_urls', u'') ],
                 'redirections' : response.meta.get('redirect_times', 0),
-                'redirect_status' : response.meta.get('redirect_status', u''),
-                'title' : response.xpath('//title/text()').extract(),
-                'desc' : response.xpath('//meta[@name="description"]/@content').extract(),
-                'h1' : response.xpath('//h1/text()').extract(),
-                'robots' : response.xpath('//meta[@name="robots"]/@content').extract(),
+                'redirect_status' : response.request.meta.get('redirect_status', u''),
+                #'status_codes' : response.meta.get('status_codes', u''),
+                'title' : response.xpath('//title/text()').extract_first(),
+                'desc' : response.xpath('//meta[@name="description"]/@content').extract_first(),
+                'h1' : response.xpath('//h1/text()').extract_first(),
+                'robots' : response.xpath('//meta[@name="robots"]/@content').extract_first(),
                 'canonical' : urljoin(response.url, response.xpath('//link[@rel="canonical"]/@href').extract_first()),
+                'referer' : referrer,
             }
 
             if (self.resources is True):
                 self.logger.debug('yield_html crawl_resources is True %s', content_type)                
                 # Extract href attribute        
-                for request in self.yield_attributes(response, '@href', None):
+                for request in self.yield_attributes(response, None, '@href'):
                     yield request
 
                 # Extract src attribute        
-                for request in self.yield_attributes(response, '@src', None):
+                for request in self.yield_attributes(response, None, '@src'):
                     yield request
             elif (self.links is True):
-                for request in self.yield_attributes(response, '@href', '//a'):
+                for request in self.yield_attributes(response, '//a', '@href'):
                     yield request
                 
 
@@ -133,7 +141,7 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
         }
         '''
 
-    def yield_attributes(self, response, attribute, element):
+    def yield_attributes(self, response, element, attribute):
         try:
             if (element is None):
                 ex_attribute = "//*[%s]" % attribute
@@ -149,9 +157,12 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
                     item['item_type'] = type(item)
                     item['link'] = link
                     # normalize-space allows to prevent \r\n characters
-                    item['value'] = href_element.xpath('normalize-space(../text())').extract_first()
-                    yield Request(link, callback=self.parse_item)
+                    item['value'] = href_element.xpath('normalize-space(text())').extract_first()
+                    item['rel'] = href_element.xpath('@rel').extract_first()
                     yield item
+
+                    if (self.follow is True):
+                        yield Request(link, callback=self.parse_item)
 
         except Exception as e:
             self.logger.exception("yield_attributes Exception")
