@@ -12,8 +12,6 @@ from seoscraper.items import UrlItem, PageMapItem
 class SeoScraperSpider(SitemapSpider, CrawlSpider):
     name = "minime_html"
 
-    #start_urls = ['https://seotrafico.com']
-    #rules = ( Rule(LinkExtractor(allow=('', )), callback='parse_item'), )
     sitemap_rules = [ ('/', 'parse_item'), ]
 
     def __init__(self, domains=None, urls=None, sitemaps=None, follow=False, resources=False, links=False, *args, **kwargs):
@@ -83,7 +81,6 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
                 'source_url' : [ u for u in response.meta.get('redirect_urls', u'') ],
                 'redirections' : response.meta.get('redirect_times', 0),
                 'redirect_status' : response.request.meta.get('redirect_status', u''),
-                #'status_codes' : response.meta.get('status_codes', u''),
                 'title' : response.xpath('//title/text()').extract_first(),
                 'desc' : response.xpath('//meta[@name="description"]/@content').extract_first(),
                 'h1' : response.xpath('//h1/text()').extract_first(),
@@ -108,38 +105,6 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
 
         yield item
 
-        '''
-        DISABLED FOR POSTGRE
-        yield {
-            'source_url' : [ urlparse(u) for u in response.meta.get('redirect_urls', u'') ],
-            'url' : urlparse(response.url),
-            'redirections' : response.meta.get('redirect_times', 0),
-            'redirect_status' : response.meta.get('redirect_status', u''),
-            'status' : response.status,
-            'title' : response.xpath('//title/text()').extract(),
-            'desc' : response.xpath('//meta[@name="description"]/@content').extract(),
-            'h1' : response.xpath('//h1/text()').extract(),
-            'robots' : response.xpath('//meta[@name="robots"]/@content').extract(),
-            'content_type' : response.headers.get('Content-Type').decode(encoding='utf-8'),
-            'content_size' : response.headers.get('Content-Length', len(response.body)).decode(encoding='utf-8'),
-            'canonical' : urlparse(urljoin(response.url, response.xpath('//link[@rel="canonical"]/@href').extract_first())),
-            'links' : [ { 
-                            'href' : urlparse( urljoin(response.url, link.xpath('@href').extract_first() ) ),
-                            'rel' : link.xpath('@rel').extract_first(), 
-                            'text' : link.xpath('text()').extract_first() 
-                        }
-                        for link in response.xpath("//a") ],
-            'resources' : [ { 'src' : urlparse(u) } for u in resources ],
-            'images' : [ { 
-                            'src' : urljoin(response.url, image.xpath('@src').extract_first()), 
-                            'alt' : image.xpath('@alt').extract_first(), 
-                            'title' : image.xpath('@title').extract_first(), 
-                            'width' : image.xpath('@width').extract_first(), 
-                            'height' : image.xpath('@height').extract_first() 
-                        }
-                        for image in images ]
-        }
-        '''
 
     def yield_attributes(self, response, element, attribute):
         try:
