@@ -9,22 +9,15 @@
 #     http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 #     http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
 
-'''
 BOT_NAME = 'seoscraper'
 
 SPIDER_MODULES = ['seoscraper.spiders']
 NEWSPIDER_MODULE = 'seoscraper.spiders'
 
-# Crawl responsibly by identifying yourself (and your website) on the user-agent
-#USER_AGENT = 'seoscraper (+http://www.yourdomain.com)'
-
 # Obey robots.txt rules
-#ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10; rv:44.0) Gecko/20100101 Firefox/44.0'
-
-#DUPEFILTER_CLASS = 'scrapy.dupefilters.RFPDupeFilter'
-#DUPEFILTER_DEBUG = True
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 #CONCURRENT_REQUESTS = 32
@@ -70,22 +63,9 @@ DOWNLOADER_MIDDLEWARES = {
 
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    'seoscraper.pipelines.MongoPipeline': 300,
-#}
 ITEM_PIPELINES = {
-  #'scrapy_mongodb.MongoDBPipeline' : 300
   'seoscraper.pipelines.PostgreMultiplePipeline' : 300,
 }
-
-MONGODB_URI = 'mongodb://localhost:27017'
-MONGODB_DATABASE = 'scrapy'
-MONGODB_COLLECTION = 'my_items'
-#MONGODB_UNIQUE_KEY = 'url'
-
-PG_HOST = 'localhost' 
-PG_DATABASE = 'seoscraperdb'
-PG_USER = 'antoinebrunel'
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See http://doc.scrapy.org/en/latest/topics/autothrottle.html
@@ -107,4 +87,3 @@ PG_USER = 'antoinebrunel'
 #HTTPCACHE_DIR = 'httpcache'
 #HTTPCACHE_IGNORE_HTTP_CODES = []
 #HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
-'''

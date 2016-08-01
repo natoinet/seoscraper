@@ -1,8 +1,5 @@
 from urllib.parse import urljoin, urlparse
 
-import pymongo
-from pymongo import MongoClient
-
 from scrapy import Request
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import SitemapSpider, CrawlSpider, Rule
@@ -39,7 +36,7 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
             with open(urls) as csv_file:
                 self.start_urls = [url.strip() for url in csv_file.readlines()]
                 self.logger.debug('__init__ %s', len(self.start_urls))
-
+        
     def start_requests(self):
         # Required for SitemapSpider
         requests = list(super(SeoScraperSpider, self).start_requests())

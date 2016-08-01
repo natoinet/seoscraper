@@ -63,3 +63,9 @@ target/
 
 # Textmate project
 *.tmproj
+
+# Environment variable
+.env
+
+# Private
+/config/private

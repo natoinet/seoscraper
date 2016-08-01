@@ -1,13 +1,17 @@
 import logging
 import json
 
+from envparse import env
 import psycopg2
 
 from seoscraper.items import UrlItem, PageMapItem
 
+
 class PostgreMultiplePipeline(object):
     def __init__(self):
-        self.connection = psycopg2.connect(host='localhost', database='seoscraperdb', user='antoinebrunel')
+        #self.connection = psycopg2.connect(host='localhost', database='seoscraperdb', user='antoinebrunel')
+        env.read_envfile()
+        self.connection = psycopg2.connect(host=env.str('PG_HOST'), database=env.str('PG_DATABASE'), user=env.str('PG_USER'))
 
     def process_item(self, item, spider):
         # check item type to decide which table to insert

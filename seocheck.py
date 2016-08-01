@@ -1,13 +1,17 @@
 import argparse
 from datetime import datetime
 
+from envparse import env
 import psycopg2
 import scrapy
 from scrapy.utils.project import get_project_settings
 from scrapy.utils.log import configure_logging
 from scrapy.crawler import CrawlerProcess, CrawlerRunner
 
-from common import delete_table, db_to_csv
+from base import delete_table, db_to_csv
+
+env.read_envfile()
+SCRAPY_SETTINGS_MODULE = env.str('SCRAPY_SETTINGS_MODULE')
 
 parser = argparse.ArgumentParser(description='Check a domain and extracts the url list and pagemap.')
 parser.add_argument('resultpath', type=str, help='Result path')
