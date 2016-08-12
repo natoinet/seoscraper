@@ -1,3 +1,4 @@
+import re
 from urllib.parse import urljoin, urlparse
 
 from scrapy import Request
@@ -25,9 +26,9 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
         SeoScraperSpider.rules = ( Rule(LinkExtractor(allow=('', )), callback='parse_item', follow=self.follow), )
         super(SeoScraperSpider, self)._compile_rules()
 
-        #if (domains is not None):
-        #    self.allowed_domains = [domains]
-        self.allowed_domains = [domains]
+        if (domains is not None):
+            self.allowed_domains = [domains]
+        #self.allowed_domains = [domains]
 
         if (sitemaps is not None):
             self.sitemap_urls = [sitemaps]
@@ -75,7 +76,7 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
             if referrer is not None:
                 referrer = referrer.decode(encoding='utf-8')
             item['doc'] = {
-                'source_url' : [ u for u in response.meta.get('redirect_urls', u'') ],
+                'redirect_urls' : [ u for u in response.meta.get('redirect_urls', u'') ],
                 'redirections' : response.meta.get('redirect_times', 0),
                 'redirect_status' : response.request.meta.get('redirect_status', u''),
                 'title' : response.xpath('//title/text()').extract_first(),
@@ -98,7 +99,26 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
             elif (self.links is True):
                 for request in self.yield_attributes(response, '//a', '@href'):
                     yield request
-                
+        
+        # Search for urls in string
+        elif 'css' in content_type:
+            #css_urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', response.text)
+            css_urls = re.findall('url\(([^)]+)\)', response.text)
+
+            #requests = [Request(css_url, callback=self.parse_item) for css_url in css_urls]
+            #yield requests
+            for css_url in css_urls:
+                joined_url = urljoin(response.url, css_url.replace("'", "").replace('"', '') )
+                item = PageMapItem()
+                item['url'] = response.url
+                item['item_type'] = type(item)
+                item['link'] = joined_url
+                # normalize-space allows to prevent \r\n characters
+                item['value'] = ''
+                item['rel'] = ''
+                yield item
+
+                yield Request(joined_url, callback=self.parse_item) 
 
         yield item
 
@@ -124,6 +144,14 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
                     yield item
 
                     if (self.follow is True):
+                        #dont_filter = False
+                        #referrer = response.request.headers.get('Referer', None)
+                        #if (self.allowed_domains is not None):
+                        #     for domain in self.allowed_domains:
+                        #         if domain in str(referrer):
+                        #             dont_filter = True
+                        #self.logger.debug('yield_attributes %s %s', link, str(dont_filter))
+                        #yield Request(link, callback=self.parse_item, dont_filter=dont_filter)
                         yield Request(link, callback=self.parse_item)
 
         except Exception as e:

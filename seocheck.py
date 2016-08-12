@@ -8,7 +8,7 @@ from scrapy.utils.project import get_project_settings
 from scrapy.utils.log import configure_logging
 from scrapy.crawler import CrawlerProcess, CrawlerRunner
 
-from base import delete_table, db_to_csv
+from core.base import delete_table, db_to_csv
 
 env.read_envfile()
 SCRAPY_SETTINGS_MODULE = env.str('SCRAPY_SETTINGS_MODULE')
@@ -29,7 +29,7 @@ delete_table("urljson")
 delete_table("pagemap")
 
 # Crawl
-configure_logging()
+configure_logging({'LOG_LEVEL' : 'DEBUG'})
 process = CrawlerProcess(settings=get_project_settings())
 
 process.crawl('minime_html', domains=args.domains, urls=args.urls,sitemaps=args.sitemaps, 
@@ -37,8 +37,8 @@ process.crawl('minime_html', domains=args.domains, urls=args.urls,sitemaps=args.
 process.start()
 
 # Export => Combine results from pagemap & urllist
-query = """select url, doc->'canonical' as canonical, status, doc->'robots' as robots, content_type, content_size, doc->'referer' as referer, doc->'title' as title, doc->'desc' as desc, doc->'h1' as h1, doc->'source_url' as source, doc->'redirect_status' as redir_status, doc->'redirections' as nb_redir from urljson"""
+query = """select url, doc->'canonical' as canonical, status, doc->'robots' as robots, content_type, content_size, doc->'referer' as referer, doc->'title' as title, doc->'desc' as desc, doc->'h1' as h1, doc->'redirect_urls' as redirect_urls, doc->'redirect_status' as redir_status, doc->'redirections' as nb_redir from urljson"""
 db_to_csv(query, args.resultpath + 'seocheck-' + str(datetime.now()) + '.csv')
 
-query = """select pagemap.url, pagemap.link, urljson.status from pagemap, urljson where pagemap.link=urljson.url"""
+query = """select pagemap.url, pagemap.link, pagemap.link_final, urljson.status from pagemap, urljson where pagemap.link=urljson.url or pagemap.link_final=urljson.url"""
 db_to_csv(query, args.resultpath + 'seocheck-pagemap-' + str(datetime.now()) + '.csv')

@@ -9,6 +9,7 @@
 #     http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 #     http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
 
+#LOG_LEVEL = 'INFO'
 BOT_NAME = 'seoscraper'
 
 SPIDER_MODULES = ['seoscraper.spiders']
@@ -44,9 +45,11 @@ DOWNLOAD_DELAY = 0
 
 # Enable or disable spider middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
-#SPIDER_MIDDLEWARES = {
-#    'seoscraper.middlewares.MyCustomSpiderMiddleware': 543,
-#}
+SPIDER_MIDDLEWARES = {
+    #'seoscraper.middlewares.MyCustomSpiderMiddleware': 543,
+    'scrapy.spidermiddlewares.offsite.OffsiteMiddleware': None,
+    'seoscraper.middlewares.CustomOffsiteMiddleware': 544,
+}
 
 # Enable or disable downloader middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
@@ -65,6 +68,7 @@ DOWNLOADER_MIDDLEWARES = {
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
   'seoscraper.pipelines.PostgreMultiplePipeline' : 300,
+  #'seoscraper.pipelines.PageSpeedPipeline' : 301,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
