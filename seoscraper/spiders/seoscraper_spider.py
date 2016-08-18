@@ -42,7 +42,9 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
         # Required for SitemapSpider
         requests = list(super(SeoScraperSpider, self).start_requests())
 
-        requests += [Request(url, self.parse_item) for url in self.start_urls]
+        # Referer set as csv for urls from the csv file
+        # dont_filter to True in case urls have been previously crawled from the sitemap
+        requests += [Request(url, self.parse_item, headers={'Referer':'File'}, dont_filter=True) for url in self.start_urls]
         return requests
 
     def parse_item(self, response):
