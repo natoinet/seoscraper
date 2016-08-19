@@ -114,10 +114,14 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
                 item = PageMapItem()
                 item['url'] = response.url
                 item['item_type'] = type(item)
+                item['link_type'] = 'css'
                 item['link'] = joined_url
                 # normalize-space allows to prevent \r\n characters
-                item['value'] = ''
+                item['anchor'] = ''
                 item['rel'] = ''
+                item['alt'] = ''
+                item['title'] = ''
+                
                 yield item
 
                 yield Request(joined_url, callback=self.parse_item) 
@@ -134,15 +138,20 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
 
             for href_element in response.xpath(ex_attribute):
                 link = urljoin( response.url, href_element.xpath(attribute).extract_first() )
+                link_type = href_element.xpath("name()").extract_first()
 
                 if (self.different_url(response.url, link) is True):
                     item = PageMapItem()
                     item['url'] = response.url
                     item['item_type'] = type(item)
+                    item['link_type'] = link_type
                     item['link'] = link
                     # normalize-space allows to prevent \r\n characters
-                    item['value'] = href_element.xpath('normalize-space(text())').extract_first()
+                    item['anchor'] = href_element.xpath('normalize-space(text())').extract_first()
                     item['rel'] = href_element.xpath('@rel').extract_first()
+                    item['alt'] = href_element.xpath('@alt').extract_first()
+                    item['title'] = href_element.xpath('@title').extract_first()
+
                     yield item
 
                     if (self.follow is True):

@@ -40,13 +40,11 @@ class PostgreMultiplePipeline(object):
                             if (len(links) > 0 and url != ''):
                                 link_final = item.get('url', '')
 
-                                logging.info("process_item pipeline: url:%s links:%s link_final:%s", url, str(links), link_final)
-
                                 #Then update the pagemap, add link_final
                                 cursor.execute("""UPDATE pagemap SET link_final=%s WHERE link=%s AND url=%s""", (link_final, links[0], url))
 
                     elif type(item) is PageMapItem:
-                        cursor.execute("""INSERT INTO pagemap (url, link, value, rel) VALUES(%s, %s, %s, %s)""", (item.get('url'), item.get('link'), item.get('value'), item.get('rel'),))
+                        cursor.execute("""INSERT INTO pagemap (type, url, link, anchor, alt, title, rel) VALUES(%s, %s, %s, %s, %s, %s, %s)""", (item.get('link_type'), item.get('url'), item.get('link'), item.get('anchor'), item.get('alt'), item.get('title'), item.get('rel'),))
 
                     connection.commit()
         except:
@@ -121,4 +119,3 @@ class PageSpeedPipeline(object):
 
         except:
             logging.exception("PageSpeedPipeline store_result Error")
-        

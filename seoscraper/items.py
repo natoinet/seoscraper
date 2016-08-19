@@ -14,5 +14,7 @@ class PageMapItem(ScraperItem):
     url = scrapy.Field()
     link = scrapy.Field()
     anchor = scrapy.Field()
+    alt = scrapy.Field()
+    title = scrapy.Field()
     rel = scrapy.Field()
-    value = scrapy.Field()
+    link_type = scrapy.Field()
