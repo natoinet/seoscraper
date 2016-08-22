@@ -16,7 +16,7 @@ SPIDER_MODULES = ['seoscraper.spiders']
 NEWSPIDER_MODULE = 'seoscraper.spiders'
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = False
+ROBOTSTXT_OBEY = True
 
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10; rv:44.0) Gecko/20100101 Firefox/44.0'
 
@@ -46,16 +46,17 @@ DOWNLOAD_DELAY = 2
 # Enable or disable spider middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
 SPIDER_MIDDLEWARES = {
-    #'seoscraper.middlewares.MyCustomSpiderMiddleware': 543,
     'scrapy.spidermiddlewares.offsite.OffsiteMiddleware': None,
-    'seoscraper.middlewares.CustomOffsiteMiddleware': 544,
+    'seoscraper.middlewares.CustomOffsiteMiddleware': 543,
 }
 
 # Enable or disable downloader middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
     'scrapy.downloadermiddlewares.redirect.RedirectMiddleware': None,
-    'seoscraper.middlewares.CustomRedirectMiddleware': 543,
+    'seoscraper.middlewares.CustomRedirectMiddleware': 643,
+    'scrapy.downloadermiddlewares.robotstxt.RobotsTxtMiddleware' : None,
+    'seoscraper.middlewares.CustomRobotsTxtMiddleware' : 644,
 }
 
 # Enable or disable extensions
