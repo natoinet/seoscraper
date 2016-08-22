@@ -20,7 +20,7 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
         self.follow = bool(follow)
         self.resources = bool(resources)
         self.links = bool(links)
-        self.handle_httpstatus_list = range( 302, 511 )
+        self.handle_httpstatus_list = [-1] + list(range( 302, 511 ))
 
         # Dynamically setting rules
         SeoScraperSpider.rules = ( Rule(LinkExtractor(allow=('', )), callback='parse_item', follow=self.follow), )

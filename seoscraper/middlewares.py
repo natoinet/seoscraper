@@ -11,7 +11,7 @@ from seoscraper.items import UrlItem
 
 class CustomRedirectMiddleware(RedirectMiddleware):
     """Handle redirection of requests based on response status and meta-refresh html tag"""
-    
+
     def process_response(self, request, response, spider):
         # Get the redirect status codes
         request.meta.setdefault('redirect_status', []).append(response.status)
@@ -24,8 +24,8 @@ class CustomRobotsTxtMiddleware(RobotsTxtMiddleware):
     
     def process_exception(self, request, exception, spider):
         # if exception type is IgnoreRequest, then return a response
-        if (isinstance(exception, IgnoreRequest) and isinstance(self, CustomRobotsTxtMiddleware)):
-            return Response(request.url, status=429, headers={'Content-Type' : 'Blocked'})
+        if isinstance(exception, IgnoreRequest):
+            return Response(request.url, status=-1, headers={'Content-Type' : 'Blocked by robots.txt'})
 
 
 class CustomOffsiteMiddleware(OffsiteMiddleware):
