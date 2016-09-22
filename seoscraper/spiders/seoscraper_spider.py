@@ -1,11 +1,19 @@
 import re
 from urllib.parse import urljoin, urlparse
 
+from twisted.internet.error import ConnectionRefusedError, DNSLookupError, TCPTimedOutError, TimeoutError
+
 from scrapy import Request
+from scrapy.exceptions import IgnoreRequest
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import SitemapSpider, CrawlSpider, Rule
+from scrapy.spidermiddlewares.httperror import HttpError
 
+from seoscraper.middlewares import RobotsTxtError
 from seoscraper.items import UrlItem, PageMapItem
+from seoscraper.utils.misc import get_referer, get_content_type, different_url
+from seoscraper.utils.misc import get_url_item, get_url_item_doc, get_css_pagemap_item, get_attribute_pagemap_item
+from seoscraper.utils.errors import errback
 
 class SeoScraperSpider(SitemapSpider, CrawlSpider):
     name = "minime_html"
@@ -20,7 +28,7 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
         self.follow = bool(follow)
         self.resources = bool(resources)
         self.links = bool(links)
-        self.handle_httpstatus_list = [-1] + list(range( 302, 511 ))
+        #self.handle_httpstatus_list = [-1, -2, -998, -999] #+ list(range( 302, 511 ))
 
         # Dynamically setting rules
         SeoScraperSpider.rules = ( Rule(LinkExtractor(allow=('', )), callback='parse_item', follow=self.follow), )
@@ -37,19 +45,42 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
             with open(urls) as csv_file:
                 self.start_urls = [url.strip() for url in csv_file.readlines()]
                 self.logger.debug('__init__ %s', len(self.start_urls))
-        
+
+
+    def _parse_sitemap(self, response):
+        sitemapspider_requests = super(SeoScraperSpider, self)._parse_sitemap(response)
+
+        # Adds error management to requests
+        for request in sitemapspider_requests:
+            yield request.replace(errback=errback)
+
+
     def start_requests(self):
         # Required for SitemapSpider
-        requests = list(super(SeoScraperSpider, self).start_requests())
+        sitemapspider_requests = list( super(SeoScraperSpider, self).start_requests() )
+
+        # Adds errback to sitemap requests
+        requests = [ request.replace(errback=errback) for request in sitemapspider_requests ]
 
         # Referer set as csv for urls from the csv file
         # dont_filter to True in case urls have been previously crawled from the sitemap
-        requests += [Request(url, self.parse_item, headers={'Referer':'File'}, dont_filter=True) for url in self.start_urls]
+        #requests += [ Request(url, self.parse_item, headers={'Referer':'File'}, dont_filter=True) for url in self.start_urls ]
+        requests += [ Request(url, self.parse_item, headers={'Referer':'File'}, dont_filter=True, errback=errback) for url in self.start_urls ]
         return requests
+
+
+    def _requests_to_follow(self, response):
+        # Required for SitemapSpider
+        crawlspider_requests = list( super(SeoScraperSpider, self)._requests_to_follow(response) )
+
+        # Adds errback to sitemap requests
+        for request in crawlspider_requests:
+            yield request.replace(errback=errback)
+
 
     def parse_item(self, response):
         try:
-            self.logger.debug('parse %s', response.url)
+            self.logger.debug('parse_item %s', response.url)
 
             for request in self.yield_html(response):
                 yield request
@@ -62,35 +93,63 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
         except Exception as e:
             self.logger.exception("Parse Exception")
 
+
+    '''
+    def errback(self, failure):
+        # log all failures
+        self.logger.error(repr(failure))
+
+        # in case you want to do something special for some errors,
+        # you may need the failure's type:
+
+        if failure.check(RobotsTxtError):
+            # From CustomRobotsTxtMiddleware downloader middleware
+            request = failure.request
+            self.logger.error('RobotsTxtError on %s', request.url)
+            
+        elif failure.check(HttpError):
+            # these exceptions come from HttpError spider middleware
+            # you can get the non-200 response
+            response = failure.value.response
+            self.logger.error('HttpError on %s %s', response.url, response.status)
+
+        elif failure.check(DNSLookupError):
+            # this is the original request
+            request = failure.request
+            self.logger.error('DNSLookupError on %s', request.url)
+
+        elif failure.check(TimeoutError, TCPTimedOutError):
+            request = failure.request
+            self.logger.error('TimeoutError on %s', request.url)
+
+        elif failure.check(IgnoreRequest):
+            request = failure.request
+            self.logger.error('IgnoreRequest on %s: -ErrorMessage:%s -Traceback:%s, value', request.url, failure.getErrorMessage(), failure.getTraceback(), repr(failure.value))
+        
+        else:
+            self.logger.error('IgnoreRequest on %s %s', request.url, dir(failure))
+    '''
+
+
     def yield_html(self, response):
-        content_type = response.headers.get('Content-Type').decode(encoding='utf-8')
-        self.logger.debug('yield_html content_type %s', content_type)
+        content_type = get_content_type(response)
+        url_item = get_url_item(response)
+                
+        #if response.flags == ['duplicate_redirection']:
+        #    if (response.meta.get('redirect_urls', u'') is not u''):
+        #        yield self.get_redirection_item(response)
 
-        item = UrlItem()
-        item['url'] = response.url
-        item['item_type'] = type(item)
-        item['status'] = response.status
-        item['content_size'] = response.headers.get('Content-Length', len(response.body)).decode(encoding='utf-8')
-        item['content_type'] = content_type
-
+        #elif 'html' in content_type:
         if 'html' in content_type:
-            referrer = response.request.headers.get('Referer', None)
-            if referrer is not None:
-                referrer = referrer.decode(encoding='utf-8')
-            item['doc'] = {
-                'redirect_urls' : [ u for u in response.meta.get('redirect_urls', u'') ],
-                'redirections' : response.meta.get('redirect_times', 0),
-                'redirect_status' : response.request.meta.get('redirect_status', u''),
-                'title' : response.xpath('//title/text()').extract_first(),
-                'desc' : response.xpath('//meta[@name="description"]/@content').extract_first(),
-                'h1' : response.xpath('//h1/text()').extract_first(),
-                'robots' : response.xpath('//meta[@name="robots"]/@content').extract_first(),
-                'canonical' : urljoin(response.url, response.xpath('//link[@rel="canonical"]/@href').extract_first()),
-                'referer' : referrer,
-            }
+            url_item['doc'] = get_url_item_doc(response)
+            yield url_item
+
+            '''
+            if (response.meta.get('redirect_urls', u'') is not u''):
+                yield self.get_redirection_item(response)
+            '''
 
             if (self.resources is True):
-                self.logger.debug('yield_html crawl_resources is True %s', content_type)                
                 # Extract href attribute        
                 for request in self.yield_attributes(response, None, '@href'):
                     yield request
@@ -98,6 +157,7 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
                 # Extract src attribute        
                 for request in self.yield_attributes(response, None, '@src'):
                     yield request
+
             elif (self.links is True):
                 for request in self.yield_attributes(response, '//a', '@href'):
                     yield request
@@ -107,26 +167,15 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
             #css_urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', response.text)
             css_urls = re.findall('url\(([^)]+)\)', response.text)
 
-            #requests = [Request(css_url, callback=self.parse_item) for css_url in css_urls]
-            #yield requests
             for css_url in css_urls:
-                joined_url = urljoin(response.url, css_url.replace("'", "").replace('"', '') )
-                item = PageMapItem()
-                item['url'] = response.url
-                item['item_type'] = type(item)
-                item['link_type'] = 'css'
-                item['link'] = joined_url
-                # normalize-space allows to prevent \r\n characters
-                item['anchor'] = ''
-                item['rel'] = ''
-                item['alt'] = ''
-                item['title'] = ''
-                
-                yield item
+                joined_url = urljoin(response.url, css_url.replace("'", "").replace('"', '') )                
+                yield get_css_pagemap_item(response, joined_url)
+                #yield Request(joined_url, callback=self.parse_item)
+                yield Request(joined_url, callback=self.parse_item, errback=errback)
 
-                yield Request(joined_url, callback=self.parse_item) 
-
-        yield item
+            yield url_item
+        else:
+            yield url_item
 
 
     def yield_attributes(self, response, element, attribute):
@@ -138,42 +187,12 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
 
             for href_element in response.xpath(ex_attribute):
                 link = urljoin( response.url, href_element.xpath(attribute).extract_first() )
-                link_type = href_element.xpath("name()").extract_first()
 
-                if (self.different_url(response.url, link) is True):
-                    item = PageMapItem()
-                    item['url'] = response.url
-                    item['item_type'] = type(item)
-                    item['link_type'] = link_type
-                    item['link'] = link
-                    # normalize-space allows to prevent \r\n characters
-                    item['anchor'] = href_element.xpath('normalize-space(text())').extract_first()
-                    item['rel'] = href_element.xpath('@rel').extract_first()
-                    item['alt'] = href_element.xpath('@alt').extract_first()
-                    item['title'] = href_element.xpath('@title').extract_first()
-
-                    yield item
+                if ( different_url(response.url, link )):
+                    yield get_attribute_pagemap_item(response, href_element, link)
 
                     if (self.follow is True):
-                        #dont_filter = False
-                        #referrer = response.request.headers.get('Referer', None)
-                        #if (self.allowed_domains is not None):
-                        #     for domain in self.allowed_domains:
-                        #         if domain in str(referrer):
-                        #             dont_filter = True
-                        #self.logger.debug('yield_attributes %s %s', link, str(dont_filter))
-                        #yield Request(link, callback=self.parse_item, dont_filter=dont_filter)
-                        yield Request(link, callback=self.parse_item)
-
+                        #yield Request(link, callback=self.parse_item)
+                        yield Request(link, callback=self.parse_item, errback=errback)
         except Exception as e:
             self.logger.exception("yield_attributes Exception")
-
-    def different_url(self, url, link):
-        parsed_url = urlparse( url )
-        linked_url = urlparse( link )
-        
-        return ( (parsed_url.scheme != linked_url.scheme) 
-            or (parsed_url.netloc != linked_url.netloc) 
-            or (parsed_url.path != linked_url.path) 
-            or (parsed_url.params != linked_url.params) 
-            or (parsed_url.query != linked_url.query) )

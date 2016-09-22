@@ -23,7 +23,6 @@ class PostgreMultiplePipeline(object):
                 with self.connection.cursor() as cursor:
                     if type(item) is UrlItem:
                         json_doc = item.get('doc', '')
-
                         cursor.execute("""INSERT INTO urljson (url, status, content_type, content_size, doc) VALUES(%s, %s, %s, %s, %s)""", 
                             (   item.get('url', ''), 
                                 int(item.get('status', 0)), 
@@ -45,6 +44,15 @@ class PostgreMultiplePipeline(object):
 
                     elif type(item) is PageMapItem:
                         cursor.execute("""INSERT INTO pagemap (type, url, link, anchor, alt, title, rel) VALUES(%s, %s, %s, %s, %s, %s, %s)""", (item.get('link_type'), item.get('url'), item.get('link'), item.get('anchor'), item.get('alt'), item.get('title'), item.get('rel'),))
+
+                    '''
+                    elif type(item) is RedirectionItem:
+                        sources = item.get('sources', '')
+                        destination = item.get('destination', '')
+                        cursor.execute("""INSERT INTO redirections (sources, destination) VALUES(%s, %s)""", 
+                            (   json.dumps( sources ), destination,  )
+                        )
+                    '''
 
                     connection.commit()
         except:

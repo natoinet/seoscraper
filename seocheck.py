@@ -27,6 +27,7 @@ print(args.domains, args.sitemaps, args.resultpath, args.urls, args.follow, args
 
 delete_table("urljson")
 delete_table("pagemap")
+delete_table("redirections")
 
 # Crawl
 configure_logging({'LOG_LEVEL' : 'DEBUG'})

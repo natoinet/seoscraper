@@ -69,3 +69,6 @@ target/
 
 # Private
 config/private/
+
+# Log
+log/*

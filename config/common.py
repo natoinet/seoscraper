@@ -26,7 +26,8 @@ USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10; rv:44.0) Gecko/20100
 # Configure a delay for requests for the same website (default: 0)
 # See http://scrapy.readthedocs.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-DOWNLOAD_DELAY = 2
+#DOWNLOAD_DELAY = 2
+#DOWNLOAD_DELAY = 0.25
 # The download delay setting will honor only one of:
 #CONCURRENT_REQUESTS_PER_DOMAIN = 16
 #CONCURRENT_REQUESTS_PER_IP = 16
@@ -48,15 +49,20 @@ DOWNLOAD_DELAY = 2
 SPIDER_MIDDLEWARES = {
     'scrapy.spidermiddlewares.offsite.OffsiteMiddleware': None,
     'seoscraper.middlewares.CustomOffsiteMiddleware': 543,
+    #'seoscraper.middlewares.CustomRedirectionMiddleware': 544,
 }
 
 # Enable or disable downloader middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
+    #'seoscraper.middlewares.CustomCatchExceptionMiddleware' : 601,
     'scrapy.downloadermiddlewares.redirect.RedirectMiddleware': None,
     'seoscraper.middlewares.CustomRedirectMiddleware': 643,
     'scrapy.downloadermiddlewares.robotstxt.RobotsTxtMiddleware' : None,
     'seoscraper.middlewares.CustomRobotsTxtMiddleware' : 644,
+    #'seoscraper.middlewares.CustomRedirectionLoopMiddleware': 645,
+    #'seoscraper.middlewares.CustomTestExceptionMiddleware1' : 698,
+    #'seoscraper.middlewares.CustomTestExceptionMiddleware2' : 699,
 }
 
 # Enable or disable extensions
@@ -92,3 +98,12 @@ ITEM_PIPELINES = {
 #HTTPCACHE_DIR = 'httpcache'
 #HTTPCACHE_IGNORE_HTTP_CODES = []
 #HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
+
+#DUPEFILTER_CLASS = 'scrapy.dupefilters.RFPDupeFilter'
+#DUPEFILTER_CLASS = 'scrapy.dupefilters.BaseDupeFilter'
+#DUPEFILTER_CLASS_MIDDLEWARE = 'scrapy.dupefilters.RFPDupeFilter'
+DUPEFILTER_CLASS = 'seoscraper.custom_filters.CustomURLFilter'
+#DUPEFILTER_CLASS_MIDDLEWARE = 'seoscraper.custom_filters.CustomURLFilter'
+
+#MAX_REDIRECTION_DEPTH = 5
+REDIRECT_MAX_TIMES = 2
