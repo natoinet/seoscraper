@@ -39,16 +39,18 @@ def get_css_pagemap_item(response, joined_url):
     return item
 
 
-def get_attribute_pagemap_item(response, element, link):
+def get_attribute_pagemap_item(response, link):
     item = PageMapItem()
     item['url'] = response.url
-    item['link_type'] = element.xpath("name()").extract_first()
-    item['link'] = link
+    #item['link_type'] = element.xpath("name()").extract_first()
+    item['link'] = link.url
+    item['anchor'] = link.text
+    item['rel'] = link.nofollow
     # normalize-space allows to prevent \r\n characters
-    item['anchor'] = element.xpath('normalize-space(text())').extract_first()
-    item['rel'] = element.xpath('@rel').extract_first()
-    item['alt'] = element.xpath('@alt').extract_first()
-    item['title'] = element.xpath('@title').extract_first()
+    #item['anchor'] = element.xpath('normalize-space(text())').extract_first()
+    #item['rel'] = element.xpath('@rel').extract_first()
+    #item['alt'] = element.xpath('@alt').extract_first()
+    #item['title'] = element.xpath('@title').extract_first()
     return item
 
 

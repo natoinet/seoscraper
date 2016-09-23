@@ -3,7 +3,7 @@ from urllib.parse import urljoin, urlparse
 
 from twisted.internet.error import ConnectionRefusedError, DNSLookupError, TCPTimedOutError, TimeoutError
 
-from scrapy import Request
+from scrapy.http import Request, HtmlResponse
 from scrapy.exceptions import IgnoreRequest
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import SitemapSpider, CrawlSpider, Rule
@@ -14,6 +14,7 @@ from seoscraper.items import UrlItem, PageMapItem
 from seoscraper.utils.misc import get_referer, get_content_type, different_url
 from seoscraper.utils.misc import get_url_item, get_url_item_doc, get_css_pagemap_item, get_attribute_pagemap_item
 from seoscraper.utils.errors import errback
+
 
 class SeoScraperSpider(SitemapSpider, CrawlSpider):
     name = "minime_html"
@@ -31,7 +32,23 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
         #self.handle_httpstatus_list = [-1, -2, -998, -999] #+ list(range( 302, 511 ))
 
         # Dynamically setting rules
-        SeoScraperSpider.rules = ( Rule(LinkExtractor(allow=('', )), callback='parse_item', follow=self.follow), )
+        #SeoScraperSpider.rules = ( Rule(LinkExtractor(allow=('', )), callback='parse_item', follow=self.follow, )
+
+        link_extractor = None
+        if resources:
+            link_extractor = LinkExtractor(allow=('', ), 
+                tags=('a', 'applet', 'audio', 'area', 'base', 'blockquote', 'body', 'button', 'command', 'del', 'embed', 'form', 'frame', 'head', 'html', 'iframe', 'img', 'input', 'ins', 'link', 'object', 'q', 'source', 'script', 'video'), 
+                attrs=('action', 'background', 'cite', 'classid', 'codebase', 'data', 'formaction', 'href', 'icon', 'longdesc', 'manifest', 'profile', 'src', 'usemap'),
+                deny_extensions='' )
+
+                #tags=('a', 'img', 'input', 'link', 'script', 'video'), 
+                #attrs=('action', 'href', 'icon', 'src'),
+            #DoesNotWork link_extractor = LinkExtractor(allow=('', ), tags=('*'), attrs=('href', 'src'))
+            #DoesNotWorkEither link_extractor = LinkExtractor(allow=('', ), tags=(), attrs=('href', 'src'))
+        else:
+            link_extractor = LinkExtractor(allow=('', ))
+
+        SeoScraperSpider.rules = ( Rule(link_extractor, callback='parse_item', follow=self.follow), )
         super(SeoScraperSpider, self)._compile_rules()
 
         if (domains is not None):
@@ -70,12 +87,35 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
 
 
     def _requests_to_follow(self, response):
+        if not isinstance(response, HtmlResponse):
+            return
+        seen = set()
+        for n, rule in enumerate(self._rules):
+            links = []
+            for lnk in rule.link_extractor.extract_links(response):
+                if lnk not in seen:
+                    links.append(lnk)
+                    if self.links:
+                        yield get_attribute_pagemap_item(response, lnk)
+                    
+            if links and rule.process_links:
+                links = rule.process_links(links)
+            for link in links:
+                seen.add(link)
+                r = Request(url=link.url, callback=self._response_downloaded, errback=errback)
+                r.meta.update(rule=n, link_text=link.text)
+                yield rule.process_request(r)
+        
+
+        '''        
         # Required for SitemapSpider
         crawlspider_requests = list( super(SeoScraperSpider, self)._requests_to_follow(response) )
 
         # Adds errback to sitemap requests
         for request in crawlspider_requests:
             yield request.replace(errback=errback)
+        '''
+        
 
 
     def parse_item(self, response):
@@ -92,7 +132,6 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
             self.logger.exception("AttributeError exception")
         except Exception as e:
             self.logger.exception("Parse Exception")
-
 
     '''
     def errback(self, failure):
@@ -149,6 +188,7 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
                 yield self.get_redirection_item(response)
             '''
 
+            '''
             if (self.resources is True):
                 # Extract href attribute        
                 for request in self.yield_attributes(response, None, '@href'):
@@ -161,6 +201,7 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
             elif (self.links is True):
                 for request in self.yield_attributes(response, '//a', '@href'):
                     yield request
+            '''
         
         # Search for urls in string
         elif 'css' in content_type:
@@ -178,6 +219,7 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
             yield url_item
 
 
+    '''
     def yield_attributes(self, response, element, attribute):
         try:
             if (element is None):
@@ -196,3 +238,4 @@ class SeoScraperSpider(SitemapSpider, CrawlSpider):
                         yield Request(link, callback=self.parse_item, errback=errback)
         except Exception as e:
             self.logger.exception("yield_attributes Exception")
+    '''
